@@ -1,22 +1,7 @@
-```groovy
 // ============================================================
-// Pipeline : node/ directory JSON files update + Maven Build
-//
-// Files:
-//   dev.json, prod.json, stage.json, uat.json
-//
-// Rules:
-//   1. At least one JSON file must be selected.
-//   2. All input fields must have values.
-//   3. Selected JSON files will be updated.
-//   4. Changes will be committed and pushed automatically.
-//   5. Maven build will run after Git push.
-//   6. JAR/WAR artifacts will be archived.
+// Pipeline: JSON Update + Git Push + Maven Build
 // ============================================================
 
-// ------------------------------------------------------------
-// Helper: Stop build as ABORTED
-// ------------------------------------------------------------
 def abortBuild(String msg) {
     currentBuild.result = 'ABORTED'
     error(msg)
@@ -26,29 +11,23 @@ pipeline {
 
     agent any
 
-    // --------------------------------------------------------
-    // Jenkins Tools
+    // ========================================================
+    // JENKINS TOOLS
+    // Manage Jenkins -> Tools
     //
-    // These names MUST exactly match:
-    // Manage Jenkins → Tools
-    //
-    // JDK:
-    //     JDK17
-    //
-    // Maven:
-    //     Maven3
-    // --------------------------------------------------------
+    // JDK Name   : JDK17
+    // Maven Name : Maven3
+    // ========================================================
     tools {
         jdk 'JDK17'
         maven 'Maven3'
     }
 
-    // --------------------------------------------------------
-    // Parameters
-    // --------------------------------------------------------
+    // ========================================================
+    // PARAMETERS
+    // ========================================================
     parameters {
 
-        // JSON files
         booleanParam(
             name: 'DEV_JSON',
             defaultValue: false,
@@ -73,95 +52,94 @@ pipeline {
             description: 'Update node/uat.json'
         )
 
-        // Values
         string(
             name: 'P_ENVIRONMENT',
             defaultValue: '',
-            description: 'environment (e.g. dev)'
+            description: 'environment'
         )
 
         string(
             name: 'P_NODE_NAME',
             defaultValue: '',
-            description: 'nodeName (e.g. node-02)'
+            description: 'nodeName'
         )
 
         string(
             name: 'P_NODE_TYPE',
             defaultValue: '',
-            description: 'nodeType (e.g. worker)'
+            description: 'nodeType'
         )
 
         string(
             name: 'P_REGION',
             defaultValue: '',
-            description: 'region (e.g. us-east-1)'
+            description: 'region'
         )
 
         string(
             name: 'P_AZ',
             defaultValue: '',
-            description: 'availabilityZone (e.g. us-east-1b)'
+            description: 'availabilityZone'
         )
 
         string(
             name: 'P_INSTANCE_TYPE',
             defaultValue: '',
-            description: 'instanceType (e.g. t3.large)'
+            description: 'instanceType'
         )
 
         string(
             name: 'P_OS',
             defaultValue: '',
-            description: 'os (e.g. Amazon Linux 2023)'
+            description: 'os'
         )
 
         string(
             name: 'P_K8S_ROLE',
             defaultValue: '',
-            description: 'kubernetes.role (e.g. worker)'
+            description: 'kubernetes.role'
         )
 
         string(
             name: 'P_K8S_VERSION',
             defaultValue: '',
-            description: 'kubernetes.version (e.g. 1.36)'
+            description: 'kubernetes.version'
         )
 
         string(
             name: 'P_CPU',
             defaultValue: '',
-            description: 'resources.cpu (e.g. 2)'
+            description: 'resources.cpu - example: 2'
         )
 
         string(
             name: 'P_MEMORY',
             defaultValue: '',
-            description: 'resources.memory (e.g. 4Gi)'
+            description: 'resources.memory - example: 4Gi'
         )
 
         string(
             name: 'P_DISK',
             defaultValue: '',
-            description: 'resources.disk (e.g. 50Gi)'
+            description: 'resources.disk - example: 50Gi'
         )
 
         string(
             name: 'P_LABEL_ENV',
             defaultValue: '',
-            description: 'labels.environment (e.g. dev)'
+            description: 'labels.environment'
         )
 
         string(
             name: 'P_LABEL_TEAM',
             defaultValue: '',
-            description: 'labels.team (e.g. platform)'
+            description: 'labels.team'
         )
     }
 
-    // --------------------------------------------------------
-    // Environment
-    // --------------------------------------------------------
+    // ========================================================
+    // ENVIRONMENT
+    // ========================================================
     environment {
 
         REPO = 'github.com/Rajesh33-11/flipkart.git'
@@ -174,18 +152,23 @@ pipeline {
     // ========================================================
     stages {
 
-        // ----------------------------------------------------
-        // 1. Validate Inputs
-        // ----------------------------------------------------
+        // ====================================================
+        // 1. VALIDATE INPUTS
+        // ====================================================
         stage('Validate Inputs') {
 
             steps {
 
                 script {
 
+                    echo '=========================================='
+                    echo 'VALIDATING INPUTS'
+                    echo '=========================================='
+
                     // ----------------------------------------
-                    // Check selected JSON files
+                    // Find selected files
                     // ----------------------------------------
+
                     def files = []
 
                     if (params.DEV_JSON) {
@@ -204,18 +187,23 @@ pipeline {
                         files << 'node/uat.json'
                     }
 
+                    // ----------------------------------------
+                    // At least one file required
+                    // ----------------------------------------
+
                     if (files.isEmpty()) {
 
                         abortBuild(
-                            'ABORTED: At least one JSON file must be selected.'
+                            'ABORTED: Select at least one JSON file.'
                         )
                     }
 
                     env.FILES = files.join(' ')
 
                     // ----------------------------------------
-                    // Validate all input values
+                    // Validate all parameter values
                     // ----------------------------------------
+
                     def valueNames = [
                         'P_ENVIRONMENT',
                         'P_NODE_NAME',
@@ -233,8 +221,8 @@ pipeline {
                         'P_LABEL_TEAM'
                     ]
 
-                    def entered = []
                     def missing = []
+                    def entered = []
 
                     valueNames.each { name ->
 
@@ -255,54 +243,60 @@ pipeline {
                     }
 
                     // ----------------------------------------
-                    // Stop if any value is missing
+                    // Stop if any value is empty
                     // ----------------------------------------
+
                     if (!missing.isEmpty()) {
 
                         abortBuild(
-                            "ABORTED: Missing values: ${missing.join(', ')}. " +
-                            "Please provide values for all fields."
+                            "ABORTED: Missing values: " +
+                            "${missing.join(', ')}"
                         )
                     }
 
                     // ----------------------------------------
                     // CPU validation
-                    // CPU must contain only numbers
                     // ----------------------------------------
+
                     def cpu = params.P_CPU.toString().trim()
 
                     if (!cpu.matches('[0-9]+')) {
 
                         abortBuild(
-                            "ABORTED: P_CPU must contain only numbers. " +
-                            "Received: '${cpu}'"
+                            "ABORTED: P_CPU must contain numbers only. " +
+                            "Received: ${cpu}"
                         )
                     }
 
                     // ----------------------------------------
-                    // Display information in Jenkins
+                    // Jenkins build information
                     // ----------------------------------------
+
                     currentBuild.displayName =
                         "#${env.BUILD_NUMBER} ${files.join(', ')}"
 
                     currentBuild.description =
-                        "Files: ${files.join(', ')} | " +
-                        "Changes: ${entered.join(', ')}"
+                        "Files: ${files.join(', ')}"
 
-                    echo "========================================"
                     echo "Selected Files : ${env.FILES}"
-                    echo "Changes        : ${entered.join(', ')}"
-                    echo "========================================"
+
+                    echo "Input Values   : ${entered.join(', ')}"
+
+                    echo 'Validation successful.'
                 }
             }
         }
 
-        // ----------------------------------------------------
-        // 2. Checkout
-        // ----------------------------------------------------
+        // ====================================================
+        // 2. CHECKOUT
+        // ====================================================
         stage('Checkout') {
 
             steps {
+
+                echo '=========================================='
+                echo 'CHECKOUT SOURCE CODE'
+                echo '=========================================='
 
                 cleanWs()
 
@@ -314,9 +308,9 @@ pipeline {
             }
         }
 
-        // ----------------------------------------------------
-        // 3. Update JSON
-        // ----------------------------------------------------
+        // ====================================================
+        // 3. UPDATE JSON
+        // ====================================================
         stage('Update JSON') {
 
             steps {
@@ -355,10 +349,10 @@ setstr(["environment"]; "P_ENVIRONMENT")
 
 JQ
 
-                    echo "Updating selected JSON files..."
-
                     for f in $FILES
                     do
+
+                        echo "Processing: $f"
 
                         if [ ! -f "$f" ]; then
 
@@ -371,9 +365,9 @@ JQ
 
                         mv tmp.json "$f"
 
-                        echo "========================================"
-                        echo "Updated: $f"
-                        echo "========================================"
+                        echo "=========================================="
+                        echo "UPDATED FILE: $f"
+                        echo "=========================================="
 
                         cat "$f"
 
@@ -384,9 +378,9 @@ JQ
             }
         }
 
-        // ----------------------------------------------------
-        // 4. Review Changes
-        // ----------------------------------------------------
+        // ====================================================
+        // 4. REVIEW CHANGES
+        // ====================================================
         stage('Review Changes') {
 
             steps {
@@ -399,22 +393,25 @@ JQ
                     )
 
                     if (rc != 0) {
+
                         env.HAS_CHANGES = 'true'
+
                     } else {
+
                         env.HAS_CHANGES = 'false'
                     }
                 }
 
                 sh '''
-                    echo "========================================"
-                    echo "GIT DIFF"
-                    echo "========================================"
+                    echo "=========================================="
+                    echo "GIT DIFF SUMMARY"
+                    echo "=========================================="
 
                     git --no-pager diff --stat
 
-                    echo "========================================"
-                    echo "DETAILED DIFF"
-                    echo "========================================"
+                    echo "=========================================="
+                    echo "GIT DIFF DETAILS"
+                    echo "=========================================="
 
                     git --no-pager diff
                 '''
@@ -424,20 +421,20 @@ JQ
                     if (env.HAS_CHANGES == 'false') {
 
                         echo 'No changes detected.'
-                        echo 'Entered values already exist in JSON files.'
                     }
                 }
             }
         }
 
-        // ----------------------------------------------------
-        // 5. Commit & Push
-        // ----------------------------------------------------
+        // ====================================================
+        // 5. COMMIT AND PUSH
+        // ====================================================
         stage('Commit & Push') {
 
             when {
 
                 expression {
+
                     env.HAS_CHANGES == 'true'
                 }
             }
@@ -463,7 +460,7 @@ JQ
 
                         git config user.email "jenkins@example.com"
 
-                        echo "Adding changed files..."
+                        echo "Adding files..."
 
                         git add $FILES
 
@@ -492,7 +489,7 @@ JQ
                                 "https://${GIT_USER}:${GIT_TOKEN}@${REPO}" \
                                 "HEAD:${BRANCH}"
 
-                            echo "Git push completed successfully."
+                            echo "Git push successful."
 
                         fi
                     '''
@@ -500,9 +497,9 @@ JQ
             }
         }
 
-        // ----------------------------------------------------
-        // 6. Maven Build
-        // ----------------------------------------------------
+        // ====================================================
+        // 6. MAVEN BUILD
+        // ====================================================
         stage('Maven Build') {
 
             steps {
@@ -510,61 +507,67 @@ JQ
                 sh '''
                     set -e
 
-                    echo "========================================"
+                    echo "=========================================="
                     echo "JAVA VERSION"
-                    echo "========================================"
+                    echo "=========================================="
 
                     java -version
 
-                    echo "========================================"
+                    echo "=========================================="
                     echo "MAVEN VERSION"
-                    echo "========================================"
+                    echo "=========================================="
 
                     mvn -version
 
-                    echo "========================================"
+                    echo "=========================================="
                     echo "CHECKING POM.XML"
-                    echo "========================================"
+                    echo "=========================================="
 
                     if [ ! -f pom.xml ]; then
 
-                        echo "ERROR: pom.xml not found in repository root."
+                        echo "ERROR: pom.xml not found."
+
+                        echo "Current directory:"
+                        pwd
+
+                        echo "Files:"
+                        ls -la
 
                         exit 1
                     fi
 
                     echo "pom.xml found."
 
-                    echo "========================================"
+                    echo "=========================================="
                     echo "STARTING MAVEN BUILD"
-                    echo "========================================"
+                    echo "=========================================="
 
                     mvn -B clean package
 
-                    echo "========================================"
-                    echo "MAVEN BUILD COMPLETED"
-                    echo "========================================"
+                    echo "=========================================="
+                    echo "MAVEN BUILD SUCCESS"
+                    echo "=========================================="
                 '''
             }
         }
 
-        // ----------------------------------------------------
-        // 7. Check Artifact
-        // ----------------------------------------------------
+        // ====================================================
+        // 7. CHECK ARTIFACT
+        // ====================================================
         stage('Check Artifact') {
 
             steps {
 
                 sh '''
-                    echo "========================================"
+                    echo "=========================================="
                     echo "TARGET DIRECTORY"
-                    echo "========================================"
+                    echo "=========================================="
 
                     ls -lah target/
 
-                    echo "========================================"
-                    echo "GENERATED ARTIFACTS"
-                    echo "========================================"
+                    echo "=========================================="
+                    echo "GENERATED JAR/WAR"
+                    echo "=========================================="
 
                     find target \
                         -maxdepth 1 \
@@ -575,9 +578,9 @@ JQ
             }
         }
 
-        // ----------------------------------------------------
-        // 8. Archive Artifact
-        // ----------------------------------------------------
+        // ====================================================
+        // 8. ARCHIVE ARTIFACT
+        // ====================================================
         stage('Archive Artifact') {
 
             steps {
@@ -598,78 +601,67 @@ JQ
 
         success {
 
-            script {
+            echo '=========================================='
+            echo 'PIPELINE SUCCESS'
+            echo '=========================================='
 
-                if (env.HAS_CHANGES == 'true') {
+            echo "Files          : ${env.FILES}"
 
-                    echo "========================================"
-                    echo "PIPELINE SUCCESS"
-                    echo "========================================"
+            echo 'JSON Update    : SUCCESS'
 
-                    echo "Updated files : ${env.FILES}"
+            echo 'Git Push       : SUCCESS'
 
-                    echo "GitHub push   : SUCCESS"
+            echo 'Maven Build    : SUCCESS'
 
-                    echo "Maven build   : SUCCESS"
+            echo 'Artifact       : ARCHIVED'
 
-                    echo "Artifact      : ARCHIVED"
+            echo "Repository     : https://${env.REPO.replace('.git', '')}"
 
-                    echo "Repository    : https://${env.REPO.replace('.git', '')}"
+            echo "Branch         : ${env.BRANCH}"
 
-                    echo "Branch        : ${env.BRANCH}"
-
-                    echo "========================================"
-
-                } else {
-
-                    echo "========================================"
-                    echo "PIPELINE SUCCESS"
-                    echo "========================================"
-
-                    echo "No JSON changes detected."
-
-                    echo "GitHub push   : SKIPPED"
-
-                    echo "Maven build   : SUCCESS"
-
-                    echo "Artifact      : ARCHIVED"
-
-                    echo "========================================"
-                }
-            }
+            echo '=========================================='
         }
 
         failure {
 
-            echo "========================================"
-            echo "PIPELINE FAILED"
-            echo "========================================"
+            echo '=========================================='
+            echo 'PIPELINE FAILED'
+            echo '=========================================='
 
-            echo "Check Console Output."
+            echo 'Check the console output.'
 
-            echo "Possible areas:"
-            echo "1. Input validation"
-            echo "2. JSON/jq processing"
-            echo "3. Git checkout"
-            echo "4. GitHub push"
-            echo "5. Maven build"
-            echo "6. Artifact generation"
+            echo 'Possible issues:'
 
-            echo "========================================"
+            echo '1. Input validation'
+
+            echo '2. jq / JSON update'
+
+            echo '3. Git checkout'
+
+            echo '4. GitHub credentials'
+
+            echo '5. Git push'
+
+            echo '6. JDK configuration'
+
+            echo '7. Maven configuration'
+
+            echo '8. pom.xml / Maven build'
+
+            echo '9. Artifact generation'
+
+            echo '=========================================='
         }
 
         aborted {
 
-            echo "========================================"
-            echo "PIPELINE ABORTED"
-            echo "========================================"
+            echo '=========================================='
+            echo 'PIPELINE ABORTED'
+            echo '=========================================='
 
-            echo "Required inputs were missing or the build was cancelled."
+            echo 'Required input was missing or build was cancelled.'
 
-            echo "No invalid changes should be pushed."
-
-            echo "========================================"
+            echo '=========================================='
         }
     }
 }
-```
