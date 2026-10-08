@@ -13,10 +13,6 @@ pipeline {
 
     // ========================================================
     // JENKINS TOOLS
-    // Manage Jenkins -> Tools
-    //
-    // JDK Name   : JDK17
-    // Maven Name : Maven3
     // ========================================================
     tools {
         jdk 'JDK17'
@@ -165,7 +161,6 @@ pipeline {
                     echo 'VALIDATING INPUTS'
                     echo '=========================================='
 
-                    // Find selected files
                     def files = []
 
                     if (params.DEV_JSON) {
@@ -184,7 +179,6 @@ pipeline {
                         files << 'node/uat.json'
                     }
 
-                    // At least one file required
                     if (files.isEmpty()) {
 
                         abortBuild(
@@ -194,7 +188,6 @@ pipeline {
 
                     env.FILES = files.join(' ')
 
-                    // Validate parameter values
                     def valueNames = [
                         'P_ENVIRONMENT',
                         'P_NODE_NAME',
@@ -233,7 +226,6 @@ pipeline {
                         }
                     }
 
-                    // Stop if any value is empty
                     if (!missing.isEmpty()) {
 
                         abortBuild(
@@ -242,7 +234,6 @@ pipeline {
                         )
                     }
 
-                    // CPU validation
                     def cpu = params.P_CPU.toString().trim()
 
                     if (!cpu.matches('[0-9]+')) {
@@ -253,7 +244,6 @@ pipeline {
                         )
                     }
 
-                    // Jenkins build information
                     currentBuild.displayName =
                         "#${env.BUILD_NUMBER} ${files.join(', ')}"
 
@@ -544,10 +534,6 @@ JQ
                 echo 'SONARQUBE ANALYSIS'
                 echo '=========================================='
 
-                // IMPORTANT:
-                // Jenkins -> Manage Jenkins -> System
-                // SonarQube installation Name = sonarqube
-
                 withSonarQubeEnv('sonarqube') {
 
                     sh '''
@@ -555,7 +541,8 @@ JQ
 
                         echo "Starting SonarQube analysis..."
 
-                        mvn -B sonar:sonar \
+                        mvn -B \
+                            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
                             -Dsonar.projectKey=flipkart \
                             -Dsonar.projectName=flipkart
 
