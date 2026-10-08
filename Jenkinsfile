@@ -165,10 +165,7 @@ pipeline {
                     echo 'VALIDATING INPUTS'
                     echo '=========================================='
 
-                    // ----------------------------------------
                     // Find selected files
-                    // ----------------------------------------
-
                     def files = []
 
                     if (params.DEV_JSON) {
@@ -187,10 +184,7 @@ pipeline {
                         files << 'node/uat.json'
                     }
 
-                    // ----------------------------------------
                     // At least one file required
-                    // ----------------------------------------
-
                     if (files.isEmpty()) {
 
                         abortBuild(
@@ -200,10 +194,7 @@ pipeline {
 
                     env.FILES = files.join(' ')
 
-                    // ----------------------------------------
-                    // Validate all parameter values
-                    // ----------------------------------------
-
+                    // Validate parameter values
                     def valueNames = [
                         'P_ENVIRONMENT',
                         'P_NODE_NAME',
@@ -242,10 +233,7 @@ pipeline {
                         }
                     }
 
-                    // ----------------------------------------
                     // Stop if any value is empty
-                    // ----------------------------------------
-
                     if (!missing.isEmpty()) {
 
                         abortBuild(
@@ -254,10 +242,7 @@ pipeline {
                         )
                     }
 
-                    // ----------------------------------------
                     // CPU validation
-                    // ----------------------------------------
-
                     def cpu = params.P_CPU.toString().trim()
 
                     if (!cpu.matches('[0-9]+')) {
@@ -268,10 +253,7 @@ pipeline {
                         )
                     }
 
-                    // ----------------------------------------
                     // Jenkins build information
-                    // ----------------------------------------
-
                     currentBuild.displayName =
                         "#${env.BUILD_NUMBER} ${files.join(', ')}"
 
@@ -562,7 +544,11 @@ JQ
                 echo 'SONARQUBE ANALYSIS'
                 echo '=========================================='
 
-                withSonarQubeEnv('SonarQube') {
+                // IMPORTANT:
+                // Jenkins -> Manage Jenkins -> System
+                // SonarQube installation Name = sonarqube
+
+                withSonarQubeEnv('sonarqube') {
 
                     sh '''
                         set -e
