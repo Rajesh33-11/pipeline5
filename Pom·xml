@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.rajesh</groupId>
+    <artifactId>node-config</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>node-config</name>
+    <description>Node JSON config files (dev/prod/stage/uat) packaged as a Maven artifact</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+    </properties>
+
+    <build>
+        <!-- Artifact name: target/node-config-1.0.0.jar -->
+        <finalName>${project.artifactId}-${project.version}</finalName>
+
+        <!-- node/ folder lo unna JSON files jar lo node/ path tho package avutayi -->
+        <resources>
+            <resource>
+                <directory>node</directory>
+                <targetPath>node</targetPath>
+                <includes>
+                    <include>*.json</include>
+                </includes>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+                <configuration>
+                    <skipIfEmpty>false</skipIfEmpty>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
